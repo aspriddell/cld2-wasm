@@ -8,7 +8,11 @@
 
 using namespace emscripten;
 
-typedef std::pair<std::string, bool> LanguageDetectionResult;
+typedef struct {
+    int lang;
+    std::string langCode;
+    bool isReliable;
+} LanguageDetectionResult;
 
 LanguageDetectionResult DetectLanguageWrapper(const std::string &text) {
     CLD2::Language lang;
@@ -34,32 +38,28 @@ LanguageDetectionResult DetectLanguageWrapper(const std::string &text) {
         &valid_prefix_bytes
     );
 
-    return std::make_pair(CLD2::LanguageCode(lang), is_reliable);
-}
-
-std::vector<LanguageDetectionResult> DetectLanguageBulk(const std::vector<std::string> &texts) {
-    std::vector<LanguageDetectionResult> results;
-
-    for (const auto &text : texts) {
-        results.push_back(DetectLanguageWrapper(text));
-    }
-
-    return results;
+    return {lang, CLD2::LanguageCode(lang), is_reliable};
 }
 
 std::string GetBuildVersion() {
     return CLD2::DetectLanguageVersion();
 }
 
-EMSCRIPTEN_BINDINGS(cld2Module) {
-    value_object<LanguageDetectionResult>("LanguageDetectionResult")
-        .field("langCode", &LanguageDetectionResult::first)
-        .field("reliable", &LanguageDetectionResult::second);
-
-    register_vector<std::string>("StringList");
-    register_vector<LanguageDetectionResult>("LanguageDetectionResultList");
-
-    function("getVersion", &GetBuildVersion);
-    function("detectLanguage", &DetectLanguageWrapper);
-    function("detectLanguageBulk", &DetectLanguageBulk);
+std::string GetLanguageName(int lang) {
+    return CLD2::LanguageName(static_cast<CLD2::Language>(lang));
 }
+
+EMSCRIPTEN_BINDINGS(cld2Module) {
+  constant("UNKNOWN_LANGUAGE_ID", static_cast<int>(CLD2::UNKNOWN_LANGUAGE));
+
+  value_object<LanguageDetectionResult>("LanguageDetectionResult")
+      .field("langId", &LanguageDetectionResult::lang)
+      .field("langCode", &LanguageDetectionResult::langCode)
+      .field("isReliable", &LanguageDetectionResult::isReliable);
+
+  function("getVersion", &GetBuildVersion);
+  function("getLanguageName", &GetLanguageName);
+
+  function("detectLanguage", &DetectLanguageWrapper);
+}
+

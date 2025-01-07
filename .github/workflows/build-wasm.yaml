@@ -5,6 +5,9 @@ on:
 
 name: Build cld2
 
+permissions:
+  contents: write
+
 jobs:
   wasm:
     name: Build (emcc)

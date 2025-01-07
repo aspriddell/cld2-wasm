@@ -1,0 +1,60 @@
+on:
+  workflow_dispatch: {}
+  release:
+    types: [published]
+
+name: Build cld2
+
+jobs:
+  wasm:
+    name: Build (emcc)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: cld2
+          repository: CLD2Owners/cld2
+          fetch-depth: 1
+
+      - uses: actions/checkout@v4
+        with:
+          path: cld2-wasm
+          fetch-depth: 1
+
+      - name: Copy build files
+        run: cp cld2-wasm/cld2_emscripten.cc cld2/internal/
+
+      - name: Perform Build
+        working-directory: cld2
+        run: |
+          docker run --rm -v $(pwd):/src -u $(id -u):$(id -g) -w /src/internal emscripten/emsdk \
+          emcc -O3 -w -Wno-narrowing -lembind -o ../cld2.js \
+          -s EXPORT_ES6=1 -s MODULARIZE=1 -s EXPORT_NAME="'cld2'" \
+          cldutil.cc cldutil_shared.cc compact_lang_det.cc compact_lang_det_hint_code.cc \
+          compact_lang_det_impl.cc debug.cc fixunicodevalue.cc \
+          generated_entities.cc generated_language.cc generated_ulscript.cc  \
+          getonescriptspan.cc lang_script.cc offsetmap.cc  scoreonescriptspan.cc \
+          tote.cc utf8statetable.cc  \
+          cld_generated_cjk_uni_prop_80.cc cld2_generated_cjk_compatible.cc  \
+          cld_generated_cjk_delta_bi_4.cc generated_distinct_bi_0.cc  \
+          cld2_generated_quadchrome_2.cc cld2_generated_deltaoctachrome.cc \
+          cld2_generated_distinctoctachrome.cc  cld_generated_score_quad_octa_2.cc cld2_emscripten.cc
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        if: ${{ github.event_name != 'release' }}
+        with:
+          name: cld2-wasm-out
+          path: |
+            cld2/*.js
+            cld2/*.wasm
+
+      - name: Archive Output
+        run: zip -j cld2-wasm.zip cld2/*.js cld2/*.wasm
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        if: ${{ github.event_name == 'release' }}
+        with:
+          files: cld2-wasm.zip
